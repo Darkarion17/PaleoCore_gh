@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PaleoCore Analyst</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--bg-primary);
+      }
+      /* Ensure chart exports have a background */
+      body.chart-export-active .recharts-surface {
+          background-color: var(--bg-tertiary);
+      }
+
+      /* Custom scrollbar for a more modern look */
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg-primary);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--bg-interactive);
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: var(--bg-interactive-hover);
+      }
+      /* OpenLayers attribution and control customization */
+      .ol-attribution {
+        background: var(--recharts-tooltip-bg) !important;
+        padding: 2px 6px !important;
+        border-radius: 4px;
+      }
+      .ol-attribution a {
+        color: var(--text-secondary) !important;
+        text-decoration: none;
+      }
+      .ol-attribution a:hover {
+        color: var(--text-primary) !important;
+      }
+      .ol-control button {
+        background-color: var(--bg-tertiary) !important;
+        color: var(--text-secondary) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+      }
+      .ol-control button:hover {
+        background-color: var(--bg-interactive-hover) !important;
+        color: var(--text-primary) !important;
+      }
+      
+      /* View transition animation */
+      @keyframes view-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .animate-fade-in {
+        animation: view-fade-in 0.4s ease-out;
+      }
+      
+      /* Smoother sidebar transition */
+      .sidebar-transition {
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      /* Styles for the map tooltip */
+      .ol-tooltip {
+        position: absolute;
+        background: var(--recharts-tooltip-bg);
+        border-radius: 4px;
+        color: var(--recharts-tooltip-text);
+        padding: 6px 10px;
+        white-space: nowrap;
+        font-size: 12px;
+        border: 1px solid var(--recharts-tooltip-border);
+        pointer-events: none; /* Critical so it doesn't block map events */
+        transform: translate(10px, -calc(100% + 10px)); /* Position above the cursor */
+      }
+      .ol-tooltip-hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+      .tooltip-title {
+          font-weight: 700;
+          color: var(--text-primary);
+      }
+      .tooltip-line {
+          color: var(--text-secondary);
+      }
+      .tooltip-line strong {
+          color: var(--text-muted);
+      }
+
+      /* Drag-and-drop folder highlight */
+      .drop-target {
+        transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+      }
+      .drop-target-active {
+        background-color: var(--bg-interactive-hover) !important;
+      }
+      
+      /* Recharts tooltip, legend, and chart styles */
+      .recharts-tooltip-wrapper {
+        outline: none !important;
+      }
+      .recharts-default-tooltip {
+        background: var(--recharts-tooltip-bg) !important;
+        border: 1px solid var(--recharts-tooltip-border) !important;
+        border-radius: 8px !important;
+        color: var(--recharts-tooltip-text) !important;
+      }
+      .recharts-tooltip-label {
+        color: var(--recharts-tooltip-text) !important;
+        font-weight: 600 !important;
+      }
+      .recharts-default-tooltip .recharts-tooltip-item {
+        color: var(--recharts-tooltip-text) !important;
+      }
+      
+      /* Enhanced recharts tooltip for multi-series */
+      .custom-tooltip-wrapper {
+        background-color: var(--recharts-tooltip-bg);
+        border: 1px solid var(--recharts-tooltip-border);
+        border-radius: 8px;
+        padding: 0.75rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        font-size: 0.875rem;
+        outline: none;
+      }
+      .tooltip-label {
+        font-weight: 700;
+        color: var(--recharts-tooltip-text);
+        margin-bottom: 0.5rem;
+      }
+      .tooltip-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0;
+      }
+      .tooltip-color-swatch {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .tooltip-item-name {
+        color: #cbd5e1; /* slate-300 */
+      }
+      .tooltip-item-value {
+        font-weight: 600;
+        color: var(--recharts-tooltip-text);
+      }
+
+
+      /* Recharts chart lines and text */
+      .recharts-cartesian-grid-line line,
+      .recharts-cartesian-axis-tick-line {
+          stroke: var(--recharts-grid-stroke) !important;
+      }
+      .recharts-cartesian-axis-line {
+          stroke: var(--recharts-grid-stroke);
+      }
+      .recharts-text.recharts-cartesian-axis-tick-value tspan,
+      .recharts-legend-item-text {
+          fill: var(--recharts-axis-stroke);
+      }
+      .recharts-label {
+          fill: var(--text-secondary);
+      }
+      
+      /* Recharts Brush styles */
+      .recharts-brush .recharts-brush-slide {
+        fill: var(--accent-primary);
+        fill-opacity: 0.2;
+      }
+      .recharts-brush .recharts-brush-traveller {
+        fill: var(--bg-tertiary);
+        stroke: var(--border-secondary);
+      }
+      
+      /* Regression annotation */
+      .regression-annotation {
+        font-size: 12px;
+        font-weight: 600;
+        fill: var(--text-primary);
+      }
+
+
+      /* Fullscreen Presentation Mode */
+      .presentation-container:fullscreen {
+        background-color: var(--bg-secondary) !important;
+        padding: 1.5rem;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+      }
+      .presentation-container:fullscreen .presentation-controls {
+        flex-shrink: 0; /* Don't shrink the controls area */
+      }
+      .presentation-container:fullscreen .presentation-chart-wrapper {
+        flex-grow: 1; /* Make the chart wrapper expand */
+        display: flex;
+        flex-direction: column;
+        min-height: 0; /* Critical for flex-grow to work properly in a flex column */
+      }
+      .presentation-container:fullscreen .presentation-chart-wrapper .recharts-responsive-container {
+        flex-grow: 1; /* Make the chart itself expand */
+      }
+      .presentation-container:fullscreen .presentation-button-instance {
+        display: none; /* Hide the button that triggered fullscreen */
+      }
+      
+      /* Command Palette */
+      .command-palette-backdrop {
+        transition: opacity 0.2s ease-in-out;
+      }
+      .command-palette-container {
+        transition: transform 0.2s ease-out, opacity 0.2s ease-out;
+        transform: scale(0.95);
+        opacity: 0;
+      }
+      .command-palette-container-open {
+        transform: scale(1);
+        opacity: 1;
+      }
+      .command-palette-item {
+        transition: background-color 0.15s ease-in-out;
+      }
+      .command-palette-item-active {
+        background-color: var(--bg-interactive);
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+            colors: {
+              background: {
+                primary: 'var(--bg-primary)',
+                secondary: 'var(--bg-secondary)',
+                tertiary: 'var(--bg-tertiary)',
+                interactive: 'var(--bg-interactive)',
+                'interactive-hover': 'var(--bg-interactive-hover)',
+              },
+              content: {
+                primary: 'var(--text-primary)',
+                secondary: 'var(--text-secondary)',
+                muted: 'var(--text-muted)',
+                inverted: 'var(--text-inverted)',
+              },
+              border: {
+                primary: 'var(--border-primary)',
+                secondary: 'var(--border-secondary)',
+              },
+              accent: {
+                primary: 'var(--accent-primary)',
+                'primary-hover': 'var(--accent-primary-hover)',
+                'primary-text': 'var(--accent-primary-text)',
+                secondary: 'var(--accent-secondary)',
+              },
+              danger: {
+                primary: 'var(--danger-primary)',
+                secondary: 'var(--danger-secondary)',
+              },
+              success: {
+                primary: 'var(--success-primary)',
+              },
+            }
+          }
+        }
+      }
+    </script>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.10.0",
+    "recharts": "https://esm.sh/recharts@^2.12.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.525.0",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "react": "https://esm.sh/react@^19.1.0",
+    "papaparse": "https://esm.sh/papaparse@5.4.1",
+    "jspdf": "https://esm.sh/jspdf@2.5.1",
+    "html2canvas": "https://esm.sh/html2canvas@1.4.1",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.45.0",
+    "ol/": "https://esm.sh/ol@^9.2.4/",
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@^5.0.2"
+  }
+}
+</script>
+</head>
+  <body class="bg-background-secondary text-content-primary">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
