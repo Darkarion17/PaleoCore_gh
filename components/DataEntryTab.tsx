@@ -4,10 +4,10 @@ import type { Section, DataPoint, CustomProxy, Microfossil } from '../types';
 import DataTable from './DataTable';
 import DataInputManager from './DataInputManager';
 import SamplingPlanGenerator from './SamplingPlanGenerator';
+import DataImportWizard from './DataImportWizard';
 import { useToast } from './useToast';
 import { calculateAveragesFromDataPoints } from '../services/coreService';
-import { Filter, Trash2, Table, Link2, ScanText, Loader2 } from 'lucide-react';
-import { digitizeFieldNotes } from '../services/geminiService';
+import { Filter, Trash2, Table, Link2, FileUp, Loader2 } from 'lucide-react';
 
 interface DataEntryTabProps {
   section: Section;
@@ -47,8 +47,7 @@ const DataEntryTab: React.FC<DataEntryTabProps> = ({ section, microfossils, onUp
   
   const [sourceProxyToAssociate, setSourceProxyToAssociate] = useState('');
   const [fossilToAssociate, setFossilToAssociate] = useState('');
-  const [isDigitizing, setIsDigitizing] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   const availableProxyTabs = useMemo(() => {
     const proxies = new Set<string>();
@@ -249,57 +248,38 @@ const DataEntryTab: React.FC<DataEntryTabProps> = ({ section, microfossils, onUp
     setSourceProxyToAssociate('');
   };
 
-  const handleScanNotes = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const handleDataImport = (importedData: DataPoint[]) => {
+    const sectionPointsMap = new Map<string, DataPoint>(
+        section.dataPoints
+            .filter((p): p is DataPoint & { subsection: string } => typeof p.subsection === 'string' && !!p.subsection)
+            .map(p => [p.subsection!, p])
+    );
+    let updatedCount = 0;
+    let addedCount = 0;
 
-      setIsDigitizing(true);
-      addToast({ message: "Scanning notes... This may take a moment.", type: "info" });
+    importedData.forEach((newPoint, index) => {
+        const subsectionId = newPoint.subsection;
+        if (subsectionId && typeof subsectionId === 'string' && subsectionId.trim() !== '') {
+            const existingPoint = sectionPointsMap.get(subsectionId);
+            if (existingPoint) {
+                updatedCount++;
+                sectionPointsMap.set(subsectionId, { ...existingPoint, ...newPoint });
+            } else {
+                addedCount++;
+                sectionPointsMap.set(subsectionId, newPoint);
+            }
+        } else {
+            const uniqueId = `Imported-${Date.now()}-${index}`;
+            sectionPointsMap.set(uniqueId, { ...newPoint, subsection: uniqueId });
+            addedCount++;
+        }
+    });
 
-      try {
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-              const base64 = (reader.result as string).split(',')[1];
-              const mimeType = file.type;
-              
-              try {
-                  const digitizedData = await digitizeFieldNotes(base64, mimeType);
-                  if (digitizedData.length === 0) {
-                      addToast({ message: "No tabular data found in image.", type: "error" });
-                      return;
-                  }
-
-                  // Merge logic
-                  const currentData = [...section.dataPoints];
-                  let addedCount = 0;
-                  
-                  digitizedData.forEach(newPoint => {
-                      // Check for duplicate depth
-                      const existingIndex = currentData.findIndex(dp => Math.abs((dp.depth || 0) - (newPoint.depth || 0)) < 0.01);
-                      if (existingIndex >= 0) {
-                          currentData[existingIndex] = { ...currentData[existingIndex], ...newPoint };
-                      } else {
-                          currentData.push(newPoint);
-                          addedCount++;
-                      }
-                  });
-                  
-                  currentData.sort((a,b) => (a.depth || 0) - (b.depth || 0));
-                  handleUpdateDataPoints(currentData);
-                  addToast({ message: `Successfully digitized notes! ${addedCount} new points added.`, type: "success" });
-
-              } catch (apiError: any) {
-                  addToast({ message: `AI Scanning failed: ${apiError.message}`, type: "error" });
-              } finally {
-                  setIsDigitizing(false);
-                  if (fileInputRef.current) fileInputRef.current.value = '';
-              }
-          };
-          reader.readAsDataURL(file);
-      } catch (err) {
-          setIsDigitizing(false);
-          addToast({ message: "Failed to read image file.", type: "error" });
-      }
+    const mergedPoints: DataPoint[] = Array.from(sectionPointsMap.values()).sort((a, b) => (a.depth || 0) - (b.depth || 0));
+    handleUpdateDataPoints(mergedPoints);
+    
+    addToast({ message: `${addedCount} new point(s) added, ${updatedCount} updated from import.`, type: 'success' });
+    return { message: 'Success', type: 'success' as const, show: true };
   };
   
     const selectClass = "w-full bg-background-interactive border border-border-secondary rounded-lg p-2 text-sm text-content-primary focus:ring-2 focus:ring-accent-primary focus:outline-none transition appearance-none bg-no-repeat bg-right pr-8";
@@ -307,6 +287,16 @@ const DataEntryTab: React.FC<DataEntryTabProps> = ({ section, microfossils, onUp
 
   return (
     <div className="space-y-6">
+      {isWizardOpen && (
+          <DataImportWizard 
+              isOpen={isWizardOpen}
+              onClose={() => setIsWizardOpen(false)}
+              onImportConfirm={handleDataImport}
+              commonDataKeys={commonDataKeys}
+              microfossils={microfossils}
+              proxyLabels={proxyLabels}
+          />
+      )}
       <SamplingPlanGenerator 
         section={section}
         proxyLabels={proxyLabels}
@@ -317,20 +307,12 @@ const DataEntryTab: React.FC<DataEntryTabProps> = ({ section, microfossils, onUp
              <h3 className="text-lg font-semibold text-content-primary">Data Management</h3>
              <div className="flex gap-2">
                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isDigitizing}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-secondary/20 text-accent-secondary hover:bg-accent-secondary/30 transition-colors text-sm font-semibold disabled:opacity-50"
+                    onClick={() => setIsWizardOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-primary/20 text-accent-primary-hover hover:bg-accent-primary/30 transition-colors text-sm font-semibold"
                  >
-                     {isDigitizing ? <Loader2 size={16} className="animate-spin"/> : <ScanText size={16}/>}
-                     Scan Field Notes
+                     <FileUp size={16}/>
+                     Import Data File
                  </button>
-                 <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    accept="image/png, image/jpeg, image/webp" 
-                    onChange={handleScanNotes}
-                 />
              </div>
         </div>
         <DataInputManager section={section} microfossils={microfossils} onUpdateSection={onUpdateSection} proxyLabels={proxyLabels} commonDataKeys={commonDataKeys} onOpenCustomProxiesModal={onOpenCustomProxiesModal} customProxies={customProxies} />

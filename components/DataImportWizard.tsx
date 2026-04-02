@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Papa from 'papaparse';
-import { X, UploadCloud, CheckCircle, AlertCircle, Loader2, Wand2, ArrowRight, ClipboardPaste } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { X, UploadCloud, CheckCircle, AlertCircle, Loader2, Wand2, ArrowRight, ClipboardPaste, FileSpreadsheet } from 'lucide-react';
 import type { DataPoint, Microfossil } from '../types';
 import { FOSSIL_ASSOCIATED_PROXIES } from '../constants';
 
@@ -169,10 +170,39 @@ const DataImportWizard: React.FC<DataImportWizardProps> = ({ isOpen, onClose, on
         if (file) {
             setFileName(file.name);
             const reader = new FileReader();
-            reader.onload = (event) => {
-                handleDataParse(event.target?.result as string, true);
-            };
-            reader.readAsText(file);
+            
+            if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                reader.onload = (event) => {
+                    try {
+                        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[firstSheetName];
+                        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                        
+                        if (jsonData.length === 0) {
+                            setError('The Excel file appears to be empty.');
+                            return;
+                        }
+
+                        const detectedHeaders = Object.keys(jsonData[0] as object);
+                        setHeaders(detectedHeaders);
+                        setParsedData(jsonData);
+
+                        const ruleMap = mapHeadersWithRules(detectedHeaders, commonDataKeys, microfossils);
+                        setHeaderMap(ruleMap);
+                        setStep('mapping');
+                    } catch (err: any) {
+                        setError(`Excel Parsing Error: ${err.message}`);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                reader.onload = (event) => {
+                    handleDataParse(event.target?.result as string, true);
+                };
+                reader.readAsText(file);
+            }
         }
     };
     
@@ -249,10 +279,10 @@ const DataImportWizard: React.FC<DataImportWizardProps> = ({ isOpen, onClose, on
                         <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
                             <UploadCloud className="w-8 h-8 mb-2 text-content-muted" />
                             <p className="text-sm text-content-secondary"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                            <p className="text-xs text-content-muted">CSV or ODV (.txt)</p>
+                            <p className="text-xs text-content-muted">CSV, TXT (ODV), or Excel (.xlsx)</p>
                             {fileName && <p className="text-xs text-accent-primary mt-2 font-semibold">{fileName}</p>}
                         </div>
-                        <input id="file-upload" type="file" className="hidden" accept=".csv,.txt" onChange={handleFileChange} />
+                        <input id="file-upload" type="file" className="hidden" accept=".csv,.txt,.xlsx,.xls" onChange={handleFileChange} />
                     </label>
                 </div>
              </div>

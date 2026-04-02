@@ -258,7 +258,7 @@ export const generateFullCoreReport = async (
             ]
         }) + 10;
         
-        const summary: (string|number)[][] = [];
+        const summary: any[][] = [];
         const proxies = new Set<string>();
         section.dataPoints.forEach(dp => Object.keys(dp).forEach(key => { if (typeof dp[key] === 'number' && key !== 'qcFlag' && key !== 'depth' && key !== 'age') proxies.add(key); }));
 
@@ -343,7 +343,7 @@ export const exportFolderToOdv = (folder: Folder, cores: Core[], allSections: Se
     const delimiter = '\t'; // Tab-separated for ODV generic spreadsheet format
 
     const staticHeaders = ['Cruise', 'Station', 'Type', 'Longitude [degrees_east]', 'Latitude [degrees_north]', 'DEPTH [m]'];
-    const customProxyMap = new Map(customProxies.map(p => [p.key, p]));
+    const customProxyMap = new globalThis.Map<string, CustomProxy>(customProxies.map(p => [p.key, p]));
     const dynamicHeaders = options.variables.map(key => {
         if (ODV_PROXY_LABELS[key]) return ODV_PROXY_LABELS[key];
         const customProxy = customProxyMap.get(key);
@@ -356,7 +356,7 @@ export const exportFolderToOdv = (folder: Folder, cores: Core[], allSections: Se
     odvContent += `// Project: ${folder.name}\n// Generated on: ${new Date().toISOString()}\n//---\n`;
     odvContent += allHeaders.join(delimiter) + '\n';
 
-    const coreMap = new Map(cores.map(c => [c.id, c]));
+    const coreMap = new globalThis.Map<string, Core>(cores.map(c => [c.id, c]));
 
     sectionsToExport.forEach(section => {
         const core = coreMap.get(section.core_id);

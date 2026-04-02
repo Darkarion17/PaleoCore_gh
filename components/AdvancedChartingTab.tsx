@@ -25,14 +25,18 @@ const AdvancedChartingTab: React.FC<AdvancedChartingTabProps> = ({ section, prox
     
     const availableProxies = useMemo<string[]>(() => {
         const proxies = new Set<string>();
+        const metadataKeys = ['subsection', 'depth', 'age', 'qcFlag'];
         section.dataPoints.forEach(dp => {
             Object.keys(dp).forEach(key => {
-                if (typeof dp[key] === 'number') {
-                    proxies.add(key);
+                if (!metadataKeys.includes(key)) {
+                    const val = dp[key];
+                    if (val !== null && val !== undefined && val !== '') {
+                        proxies.add(key);
+                    }
                 }
             });
         });
-        return Array.from(proxies).filter(p => p !== 'qcFlag');
+        return Array.from(proxies).sort();
     }, [section.dataPoints]);
 
     const hasAgeData = useMemo(() => section.dataPoints.some(dp => dp.age != null), [section.dataPoints]);
@@ -157,18 +161,21 @@ const AdvancedChartingTab: React.FC<AdvancedChartingTabProps> = ({ section, prox
             // FIX: Use any-casting for dp and point to allow safe dynamic property access with string keys.
             return section.dataPoints.map((dp: any): Record<string, any> => {
                 const point: Record<string, any> = {};
-                point[xKey] = dp[xKey];
-                point[yKey] = dp[yKey];
-                point[zKey] = dp[zKey];
+                const keys = [xKey, yKey, zKey];
+                keys.forEach(k => {
+                    const val = dp[k];
+                    point[k] = typeof val === 'string' ? parseFloat(val) : val;
+                });
                 return point;
-            }).filter((p: any) => p[xKey] != null && p[yKey] != null && p[zKey] != null);
+            }).filter((p: any) => p[xKey] != null && p[yKey] != null && p[zKey] != null && !isNaN(p[xKey]) && !isNaN(p[yKey]) && !isNaN(p[zKey]));
         }
     
         const mergedData = new Map<any, any>();
         section.dataPoints.forEach((point: any) => {
             // FIX: Access property using explicitly typed string xKey.
-            const xValue = point[xKey];
-            if (xValue != null) {
+            const rawX = point[xKey];
+            const xValue = typeof rawX === 'string' ? parseFloat(rawX) : rawX;
+            if (xValue != null && !isNaN(xValue)) {
                 // FIX: Ensure entry is initialized and updated using string keys.
                 let entry: any = mergedData.get(xValue);
                 if (!entry) {
@@ -180,11 +187,13 @@ const AdvancedChartingTab: React.FC<AdvancedChartingTabProps> = ({ section, prox
                 // FIX: Explicitly type and access each data series property as a string.
                 dataSeries.forEach((series: { label: string; key: string; yAxisId: string }) => {
                     const sKey: string = series.key;
-                    const yValue = point[sKey];
-                    if (yValue != null) {
-                        const sLabel: string = series.label;
-                        entry[sLabel] = yValue;
-                        updated = true;
+                    const val = point[sKey];
+                    if (val != null) {
+                        const yValue = typeof val === 'string' ? parseFloat(val) : val;
+                        if (!isNaN(yValue as number)) {
+                            entry[sKey] = yValue;
+                            updated = true;
+                        }
                     }
                 });
     
@@ -207,8 +216,17 @@ const AdvancedChartingTab: React.FC<AdvancedChartingTabProps> = ({ section, prox
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                     <div>
                         <label className="block text-xs font-medium text-content-secondary mb-1">X-Axis</label>
-                        <select value={xAxisKey} onChange={e => {setXAxisKey(e.target.value); setXAxisReversed(e.target.value === 'age');}} className={selectClass} style={{ backgroundImage: selectIcon, backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em' }}>
-                            {availableProxies.map(p => <option key={p} value={p}>{proxyLabels[p] || p}</option>)}
+                        <select 
+                            value={xAxisKey} 
+                            onChange={e => {
+                                setXAxisKey(e.target.value); 
+                                setXAxisReversed(e.target.value === 'age');
+                            }} 
+                            className={selectClass} 
+                            style={{ backgroundImage: selectIcon, backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em' }}
+                        >
+                            <option value="depth">{proxyLabels.depth || 'Depth (mbsf)'}</option>
+                            {hasAgeData && <option value="age">{proxyLabels.age || 'Age (ka)'}</option>}
                         </select>
                     </div>
                      <div>
@@ -218,13 +236,13 @@ const AdvancedChartingTab: React.FC<AdvancedChartingTabProps> = ({ section, prox
                                 <span className="truncate pr-2">{
                                     yAxisKeys.size > 1 
                                         ? `${yAxisKeys.size} proxies selected` 
-                                        : (proxyLabels[Array.from(yAxisKeys)[0]] || 'Select proxy')
+                                        : (proxyLabels[Array.from(yAxisKeys)[0] as string] || 'Select proxy')
                                 }</span>
                                 <ChevronDown size={16} className={`transition-transform ${yAxisDropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {yAxisDropdownOpen && (
                                 <div className="absolute top-full mt-1 w-full bg-background-primary border border-border-secondary rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto p-2">
-                                    {availableProxies.filter(p => p !== xAxisKey).map(p => (
+                                    {availableProxies.filter(p => p !== xAxisKey).map((p: string) => (
                                         <label key={p} className="flex items-center gap-2 p-2 rounded-md hover:bg-background-tertiary text-sm cursor-pointer">
                                             <input
                                                 type="checkbox"

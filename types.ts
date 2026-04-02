@@ -139,7 +139,7 @@ export interface ChatMessage {
     sources?: Source[];
 }
 
-export type SidebarView = 'list' | 'map' | 'imageAnalysis' | 'wiki';
+export type SidebarView = 'dashboard' | 'explorer' | 'list' | 'map' | 'imageAnalysis' | 'wiki';
 
 export interface TiePoint {
     id: string;

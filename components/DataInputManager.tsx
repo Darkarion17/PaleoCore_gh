@@ -2,8 +2,7 @@
 
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import type { Section, DataPoint, LabAnalysis, CustomProxy, Microfossil } from '../types';
-import { Database, PlusCircle, Beaker, Filter, FileUp, Bug } from 'lucide-react';
-import DataImportWizard from './DataImportWizard';
+import { Database, PlusCircle, Beaker, Filter, Bug } from 'lucide-react';
 import { calculateAveragesFromDataPoints } from '../services/coreService';
 import { FOSSIL_ASSOCIATED_PROXIES } from '../constants';
 
@@ -47,7 +46,6 @@ const DataInputManager: React.FC<DataInputManagerProps> = ({ section, microfossi
   }, [createInitialState]);
   
   const [status, setStatus] = useState<{type: 'success'|'error'|'info', msg: string} | null>(null);
-  const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [isProxyManagerOpen, setIsProxyManagerOpen] = useState(false);
   const proxyManagerRef = useRef<HTMLDivElement>(null);
   const [selectedFossilId, setSelectedFossilId] = useState<string>('__BULK__');
@@ -156,66 +154,11 @@ const DataInputManager: React.FC<DataInputManagerProps> = ({ section, microfossi
     setTimeout(() => setStatus(null), 3000);
   };
   
-  const handleDataImport = (importedData: DataPoint[]) => {
-    // FIX: Added a filter with a type guard to ensure `p.subsection` is a string before using it as a key for the Map, preventing type errors with undefined keys.
-    const sectionPointsMap = new Map<string, DataPoint>(
-        section.dataPoints
-            .filter((p): p is DataPoint & { subsection: string } => typeof p.subsection === 'string' && !!p.subsection)
-            .map(p => [p.subsection!, p])
-    );
-    let updatedCount = 0;
-    let addedCount = 0;
-
-    importedData.forEach((newPoint, index) => {
-        const subsectionId = newPoint.subsection;
-        if (subsectionId && typeof subsectionId === 'string' && subsectionId.trim() !== '') {
-            const existingPoint = sectionPointsMap.get(subsectionId);
-            if (existingPoint) {
-                updatedCount++;
-                sectionPointsMap.set(subsectionId, { ...existingPoint, ...newPoint });
-            } else {
-                addedCount++;
-                sectionPointsMap.set(subsectionId, newPoint);
-            }
-        } else {
-            const uniqueId = `Imported-${Date.now()}-${index}`;
-            sectionPointsMap.set(uniqueId, { ...newPoint, subsection: uniqueId });
-            addedCount++;
-        }
-    });
-
-    const mergedPoints: DataPoint[] = Array.from(sectionPointsMap.values()).sort((a, b) => (a.depth || 0) - (b.depth || 0));
-    const newLabAnalysis = calculateAveragesFromDataPoints(mergedPoints);
-
-    onUpdateSection({ ...section, dataPoints: mergedPoints, labAnalysis: newLabAnalysis });
-    
-    const toast = {
-      message: `${addedCount} new point(s) added, ${updatedCount} updated from import.`,
-      type: 'success' as const,
-      show: true
-    };
-    
-    // Use a function that can be passed to the modal to show the toast on success
-    return toast;
-  };
-
-  
   const inputClass = "w-full bg-background-interactive border border-border-secondary rounded-md p-2 text-sm text-content-primary placeholder-content-muted focus:ring-1 focus:ring-accent-primary focus:outline-none transition";
   const labelClass = "block text-xs font-medium text-content-secondary mb-1";
   
   return (
     <div className="space-y-6">
-      {isWizardOpen && (
-          <DataImportWizard 
-              isOpen={isWizardOpen}
-              onClose={() => setIsWizardOpen(false)}
-              onImportConfirm={handleDataImport}
-              commonDataKeys={commonDataKeys}
-              microfossils={microfossils}
-              proxyLabels={proxyLabels}
-          />
-      )}
-      
       <div className="p-4 bg-background-primary/30 rounded-lg border border-border-primary">
         <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
             <h3 className="text-lg font-semibold text-content-primary flex items-center gap-2"><Database size={20} className="text-accent-primary"/> Manual Subsection Entry</h3>
@@ -280,18 +223,6 @@ const DataInputManager: React.FC<DataInputManagerProps> = ({ section, microfossi
                 <PlusCircle size={16}/> Add/Update Subsection
             </button>
         </div>
-      </div>
-
-      <div className="p-4 bg-background-primary/30 rounded-lg border border-border-primary">
-        <h3 className="text-lg font-semibold text-content-primary flex items-center gap-2 mb-2"><FileUp size={20} className="text-accent-primary"/> Bulk Data Upload</h3>
-        <p className="text-xs text-content-muted mb-3">Launch the wizard to upload a file or paste data from a spreadsheet. The AI will help map columns, and rows with matching Subsection IDs will be updated.</p>
-        <button
-            onClick={() => setIsWizardOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-accent-primary/80 text-accent-primary-text hover:bg-accent-primary transition-colors text-sm font-semibold"
-        >
-            <FileUp size={16} />
-            Launch Import Wizard
-        </button>
       </div>
     </div>
   );

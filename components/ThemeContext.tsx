@@ -95,6 +95,34 @@ export const themes: Theme[] = [
         '--recharts-axis-stroke': '#89c2d9',
     },
   },
+  {
+    name: 'precision',
+    colors: {
+        '--bg-primary': '#0f172a', // Matte Dark
+        '--bg-secondary': '#020617', // Even darker for background
+        '--bg-tertiary': '#1e293b', // slate-800
+        '--bg-interactive': '#334155', // slate-700
+        '--bg-interactive-hover': '#475569', // slate-600
+        '--text-primary': '#f8fafc', // slate-50
+        '--text-secondary': '#94a3b8', // slate-400
+        '--text-muted': '#64748b', // slate-500
+        '--text-inverted': '#0f172a',
+        '--border-primary': 'rgba(255, 255, 255, 0.1)', // Subtle transparent border
+        '--border-secondary': 'rgba(255, 255, 255, 0.05)',
+        '--accent-primary': '#00f2ff', // Electric Cyan
+        '--accent-primary-hover': '#00d8e6',
+        '--accent-primary-text': '#0f172a',
+        '--accent-secondary': '#f27d26', // Safety Orange
+        '--danger-primary': '#ef4444',
+        '--danger-secondary': '#dc2626',
+        '--success-primary': '#10b981',
+        '--recharts-tooltip-bg': '#0f172a',
+        '--recharts-tooltip-border': 'rgba(0, 242, 255, 0.3)',
+        '--recharts-tooltip-text': '#f8fafc',
+        '--recharts-grid-stroke': 'rgba(255, 255, 255, 0.05)',
+        '--recharts-axis-stroke': '#64748b',
+    },
+  },
 ];
 
 interface ThemeContextType {
@@ -109,9 +137,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Check for saved theme in localStorage or default to 'dark'
     try {
         const savedTheme = window.localStorage.getItem('paleocore-theme');
-        return savedTheme && themes.some(t => t.name === savedTheme) ? savedTheme : 'dark';
+        return savedTheme && themes.some(t => t.name === savedTheme) ? savedTheme : 'precision';
     } catch {
-        return 'dark';
+        return 'precision';
     }
   });
 

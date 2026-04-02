@@ -190,24 +190,17 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, userEmail 
         if (isConfirmingUnenroll) {
             return (
                 <div className="bg-danger-secondary/20 border border-danger-primary/50 p-4 rounded-lg">
-                    <h3 className="font-bold text-danger-primary">Confirm Disabling 2FA</h3>
-                    <p className="text-sm text-content-secondary mt-2 mb-4">
-                        Are you sure you want to remove two-factor authentication? Your account will be less secure.
+                    <h3 className="font-bold text-danger-primary text-center">2FA is Mandatory</h3>
+                    <p className="text-sm text-content-secondary mt-2 mb-4 text-center">
+                        Two-factor authentication is required for all accounts to ensure data security. 
+                        It cannot be disabled at this time.
                     </p>
-                    <div className="flex justify-end gap-3">
+                    <div className="flex justify-center">
                         <button 
                             onClick={() => setIsConfirmingUnenroll(false)}
-                            disabled={isLoading}
                             className="px-4 py-2 rounded-lg bg-background-interactive text-content-inverted hover:bg-background-interactive-hover transition text-sm font-semibold"
                         >
-                            Cancel
-                        </button>
-                         <button 
-                            onClick={confirmAndUnenroll}
-                            disabled={isLoading}
-                            className="px-4 py-2 rounded-lg bg-danger-primary text-content-inverted hover:bg-danger-secondary transition text-sm font-semibold flex items-center gap-2"
-                        >
-                            {isLoading ? <Loader2 size={16} className="animate-spin" /> : 'Yes, Disable'}
+                            Close
                         </button>
                     </div>
                 </div>
@@ -229,11 +222,14 @@ const AccountModal: React.FC<AccountModalProps> = ({ isOpen, onClose, userEmail 
                             </div>
                         </div>
                         <button 
-                            onClick={handleUnenrollRequest}
-                            disabled={isLoading}
-                            className="mt-4 px-5 py-2 rounded-lg bg-danger-primary/80 text-content-inverted hover:bg-danger-primary transition text-sm font-semibold disabled:bg-background-interactive"
+                            onClick={() => {
+                                onClose();
+                                // This will be picked up by checkMfaStatus in App.tsx
+                                window.location.reload(); 
+                            }}
+                            className="mt-4 px-5 py-2 rounded-lg bg-background-interactive text-content-inverted hover:bg-background-interactive-hover transition text-sm font-semibold"
                         >
-                            {isLoading ? <Loader2 className="animate-spin" /> : 'Disable 2FA'}
+                            2FA Status: Mandatory (Click to Refresh)
                         </button>
                     </div>
                 ) : qrCode ? (

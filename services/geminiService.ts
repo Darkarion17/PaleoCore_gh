@@ -3,8 +3,17 @@ import type { Core, Section, DataPoint, Microfossil, PartialMicrofossil, Taxonom
 import type { GenerateContentResponse } from "@google/genai";
 
 
-// ALWAYS use the pre-configured process.env.API_KEY directly as per guidelines.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// ALWAYS use the pre-configured process.env.GEMINI_API_KEY directly as per guidelines.
+const getApiKey = () => {
+    const key = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    if (!key || key === 'undefined') {
+        console.warn("GEMINI_API_KEY is not defined in the environment.");
+        return null;
+    }
+    return key;
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() || '' });
 
 export const generateReportCoverImage = async (core: Core): Promise<string | null> => {
     try {

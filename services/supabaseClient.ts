@@ -1,5 +1,4 @@
 
-
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../database.types';
 
@@ -18,9 +17,5 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseKey, {
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: true
-    },
-    global: {
-        // FIX: Provided a robust wrapper around the native `fetch` to prevent a dependency from modifying the read-only `window.fetch`, ensuring global context is not altered.
-        fetch: (url, options) => fetch(url, options),
-    },
+    }
 });

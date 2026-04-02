@@ -205,39 +205,62 @@ const QasTuningWorkspace: React.FC<QasTuningWorkspaceProps> = ({ section, proxyL
                         </ResponsiveContainer>
                     </div>
 
-                    {/* NÚCLEO */}
-                    <div className={`bg-slate-950 p-6 rounded-3xl border-2 transition-all relative h-[400px] flex-shrink-0 ${pickingMode === 'depth' ? 'border-cyan-500 ring-4 ring-cyan-500/20' : 'border-slate-800'}`}>
+                    {/* NÚCLEO / TUNING */}
+                    <div className={`bg-slate-950 p-6 rounded-3xl border-2 transition-all relative h-[350px] flex-shrink-0 ${pickingMode === 'depth' ? 'border-cyan-500 ring-4 ring-cyan-500/20' : 'border-slate-800'}`}>
                         <div className="absolute top-4 left-6 z-10 flex gap-2">
                              <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-700">
                                 <Activity size={12} className="text-orange-400" />
                                 <span className="text-[10px] font-black uppercase text-slate-300">
-                                    {isSedRateExpanded ? 'Diagnóstico: Sedimentation Rate' : `Núcleo: ${section.name}`}
+                                    Núcleo: {section.name}
                                 </span>
                             </div>
                         </div>
                         
                         <ResponsiveContainer width="100%" height="100%">
-                            {isSedRateExpanded ? (
-                                <AreaChart data={sedRates}>
-                                    <CartesianGrid strokeDasharray="1 4" stroke="#334155" />
-                                    <XAxis dataKey="age" tick={{fill: '#94a3b8', fontSize: 10}} reversed />
-                                    <YAxis tick={{fill: '#94a3b8', fontSize: 10}} />
-                                    <Area type="stepAfter" dataKey="rate" stroke="#10b981" fill="#10b981" fillOpacity={0.2} strokeWidth={3} />
-                                    <Tooltip />
-                                </AreaChart>
-                            ) : (
-                                <LineChart data={calibratedData} onClick={(d) => handleChartClick(d, 'depth')} style={{ cursor: pickingMode === 'depth' ? 'crosshair' : 'default' }}>
-                                    <CartesianGrid strokeDasharray="1 4" stroke="#334155" />
-                                    <XAxis dataKey={viewMode === 'depth' ? 'depth' : 'age'} reversed={viewMode === 'age'} tick={{fill: '#94a3b8', fontSize: 11}} label={{value: viewMode === 'depth' ? 'mbsf' : 'ka', position: 'insideBottom', offset: -5, fill: '#64748b', fontSize: 10}} />
-                                    <YAxis tick={{fill: '#94a3b8', fontSize: 11}} domain={['auto', 'auto']} reversed={activeProxy.includes('delta18O')} />
-                                    <Tooltip contentStyle={{backgroundColor: '#020617', border: 'none'}} />
-                                    <Line type="monotone" dataKey={activeProxy} stroke="#fb923c" strokeWidth={3} dot={{ r: 3, fill: '#fb923c' }} isAnimationActive={false} />
-                                    {tiePoints.map(tp => (
-                                        <ReferenceLine key={tp.id} x={viewMode === 'depth' ? tp.depth : tp.age} stroke="#f43f5e" strokeWidth={2} />
-                                    ))}
-                                </LineChart>
-                            )}
+                            <LineChart data={calibratedData} onClick={(d) => handleChartClick(d, 'depth')} style={{ cursor: pickingMode === 'depth' ? 'crosshair' : 'default' }}>
+                                <CartesianGrid strokeDasharray="1 4" stroke="#334155" />
+                                <XAxis dataKey={viewMode === 'depth' ? 'depth' : 'age'} reversed={viewMode === 'age'} tick={{fill: '#94a3b8', fontSize: 11}} label={{value: viewMode === 'depth' ? 'mbsf' : 'ka', position: 'insideBottom', offset: -5, fill: '#64748b', fontSize: 10}} />
+                                <YAxis tick={{fill: '#94a3b8', fontSize: 11}} domain={['auto', 'auto']} reversed={activeProxy.includes('delta18O')} />
+                                <Tooltip contentStyle={{backgroundColor: '#020617', border: 'none'}} />
+                                <Line type="monotone" dataKey={activeProxy} stroke="#fb923c" strokeWidth={3} dot={{ r: 3, fill: '#fb923c' }} isAnimationActive={false} />
+                                {tiePoints.map(tp => (
+                                    <ReferenceLine key={tp.id} x={viewMode === 'depth' ? tp.depth : tp.age} stroke="#f43f5e" strokeWidth={2} />
+                                ))}
+                            </LineChart>
                         </ResponsiveContainer>
+                    </div>
+
+                    {/* SEDIMENTATION RATE */}
+                    <div className="bg-slate-950 p-6 rounded-3xl border-2 border-slate-800 relative h-[250px] flex-shrink-0">
+                        <div className="absolute top-4 left-6 z-10 flex gap-2">
+                             <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-1 rounded-full border border-slate-700">
+                                <TrendingUp size={12} className="text-emerald-400" />
+                                <span className="text-[10px] font-black uppercase text-slate-300">
+                                    Sedimentation Rate (cm/ka)
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={sedRates}>
+                                <defs>
+                                    <linearGradient id="colorRate" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="1 4" stroke="#334155" />
+                                <XAxis dataKey="age" tick={{fill: '#94a3b8', fontSize: 10}} reversed />
+                                <YAxis tick={{fill: '#94a3b8', fontSize: 10}} />
+                                <Tooltip contentStyle={{backgroundColor: '#020617', border: 'none'}} />
+                                <Area type="stepAfter" dataKey="rate" stroke="#10b981" fill="url(#colorRate)" fillOpacity={1} strokeWidth={3} />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                        {sedRates.length === 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm rounded-3xl">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Add tie-points to calculate rates</p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

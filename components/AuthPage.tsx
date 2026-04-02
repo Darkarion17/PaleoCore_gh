@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { Loader2, Mail, KeyRound, AlertTriangle } from 'lucide-react';
-import MfaChallengeModal from './MfaChallengeModal';
 import Logo from './Logo';
 
 const PasswordStrengthMeter = ({ score }: { score: number }) => {
@@ -36,8 +35,6 @@ const AuthPage: React.FC = () => {
     const [message, setMessage] = useState<string | null>(null);
     const [passwordStrength, setPasswordStrength] = useState(0);
 
-    const [showMfaModal, setShowMfaModal] = useState(false);
-
     const checkPasswordStrength = (pass: string) => {
         let score = 0;
         if (pass.length > 8) score++;
@@ -67,7 +64,8 @@ const AuthPage: React.FC = () => {
                 const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
                 if (signInError) {
                     if (signInError.code === 'mfa_required') {
-                        setShowMfaModal(true);
+                        // Attempt to get session to trigger global MFA challenge in App.tsx
+                        await supabase.auth.getSession();
                         setLoading(false);
                         return;
                     }
@@ -98,33 +96,6 @@ const AuthPage: React.FC = () => {
         }
     };
 
-    const handleVerifyMfa = async (code: string) => {
-        setLoading(true);
-        setError(null);
-        
-        try {
-            const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
-            if (factorsError) throw factorsError;
-
-            const totpFactor = factorsData.totp[0];
-            if (!totpFactor) throw new Error("No 2FA factor found. Please try logging in again.");
-
-            const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
-                factorId: totpFactor.id,
-                code: code,
-            });
-
-            if (verifyError) throw verifyError;
-
-            // onAuthStateChange in App.tsx will handle successful login
-            setShowMfaModal(false);
-        } catch (err: any) {
-            setError(err.error_description || err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-    
     const renderForm = () => {
         if (view === 'forgotPassword') {
             return (
@@ -179,7 +150,7 @@ const AuthPage: React.FC = () => {
     };
     
     const getButtonText = () => {
-        if (loading && !showMfaModal) return <Loader2 className="animate-spin" size={20} />;
+        if (loading) return <Loader2 className="animate-spin" size={20} />;
         if (view === 'signIn') return 'Sign In';
         if (view === 'signUp') return 'Sign Up';
         return 'Send Reset Link';
@@ -203,7 +174,7 @@ const AuthPage: React.FC = () => {
                     <form onSubmit={handleAuthAction} className="space-y-4">
                         {renderForm()}
                         
-                        {error && !showMfaModal && (
+                        {error && (
                             <div className="bg-danger-primary/20 text-danger-primary text-sm p-3 rounded-lg flex items-center gap-2">
                                 <AlertTriangle size={18} />
                                 {error}
@@ -253,17 +224,6 @@ const AuthPage: React.FC = () => {
                     <p>&copy; {new Date().getFullYear()} Dario Bolance's Organism. All rights reserved.</p>
                 </footer>
             </div>
-
-            <MfaChallengeModal
-                isOpen={showMfaModal}
-                onClose={() => {
-                    setShowMfaModal(false);
-                    setError(null);
-                }}
-                onVerify={handleVerifyMfa}
-                loading={loading}
-                error={error}
-            />
         </div>
     );
 };

@@ -12,7 +12,6 @@ import { DashboardTab } from './DashboardTab';
 import AddCoreModal from './AddCoreModal';
 import CoreSynthesisView from './CoreSynthesisView';
 import StratigraphicColumn from './StratigraphicColumn';
-import ProcessingPipelineTab from './ProcessingPipelineTab';
 import AdvancedAnalyticsTab from './AdvancedAnalyticsTab';
 import AdvancedChartingTab from './AdvancedChartingTab';
 import CountingSheetView from './CountingSheetView';
@@ -195,7 +194,7 @@ const CoreDashboard: React.FC<CoreDashboardProps> = ({ core, allCores, allSectio
       </button>
   );
 
-  type Tab = 'dashboard' | 'charting' | 'data_entry' | 'fossils' | 'countingSheet' | 'processing' | 'synthesis' | 'comparison' | 'analysis';
+  type Tab = 'dashboard' | 'charting' | 'data_entry' | 'fossils' | 'countingSheet' | 'synthesis' | 'comparison' | 'analysis';
   
   const renderContent = () => {
     if (loadingSections) {
@@ -228,8 +227,6 @@ const CoreDashboard: React.FC<CoreDashboardProps> = ({ core, allCores, allSectio
         return selectedSection ? <FossilRecordsTab section={selectedSection} microfossils={microfossils} onUpdateSection={handleUpdateSectionDataWrapper} /> : null;
       case 'countingSheet':
         return <CountingSheetView sections={filteredSections} allFossils={microfossils} onUpdateSection={handleUpdateSectionDataWrapper} />;
-      case 'processing':
-        return selectedSection ? <ProcessingPipelineTab section={selectedSection} onUpdateSection={handleUpdateSectionDataWrapper} proxyLabels={proxyLabels} /> : null;
       case 'synthesis':
         return <CoreSynthesisView 
                   sections={sections} 
@@ -287,50 +284,50 @@ const CoreDashboard: React.FC<CoreDashboardProps> = ({ core, allCores, allSectio
           <StratigraphicColumn sections={filteredSections} microfossils={microfossils} hoveredDepth={hoveredDepth} setHoveredDepth={setHoveredDepth} />
       </div>
       
-      <div className="p-6 bg-background-tertiary/50 rounded-xl shadow-lg border border-border-primary/50">
-        <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-bold text-content-primary">Sections ({filteredSections.length})</h3>
-            <div className="flex items-center gap-2">
-                <button onClick={() => { setEditingSection(null); setIsSectionModalOpen(true); }} className="flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg bg-accent-primary/20 text-accent-primary-hover hover:bg-accent-primary/30 transition-colors text-sm font-semibold">
-                    <PlusCircle size={16}/> Add New Section
+      <div className="p-3 bg-background-tertiary/30 rounded-xl shadow-sm border border-border-primary/30">
+        <div className="flex justify-between items-center mb-3">
+            <h3 className="text-sm font-black uppercase tracking-widest text-content-muted">Sections ({filteredSections.length})</h3>
+            <div className="flex items-center gap-1.5">
+                <button onClick={() => { setEditingSection(null); setIsSectionModalOpen(true); }} className="flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-accent-primary/10 text-accent-primary hover:bg-accent-primary/20 transition-all text-[10px] font-black uppercase tracking-tighter">
+                    <PlusCircle size={14}/> Add Section
                 </button>
                 {selectedSection && 
-                  <>
-                    <button onClick={() => { setEditingSection(selectedSection); setIsSectionModalOpen(true); }} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-background-interactive text-content-secondary hover:bg-background-interactive-hover hover:text-content-primary transition-colors text-sm font-semibold">
-                        <Pencil size={14}/> Edit Section
+                  <div className="flex items-center gap-1.5 border-l border-border-primary/50 ml-1.5 pl-1.5">
+                    <button onClick={() => { setEditingSection(selectedSection); setIsSectionModalOpen(true); }} className="p-1.5 rounded-lg text-content-muted hover:text-accent-primary hover:bg-accent-primary/10 transition-all" title="Edit Section">
+                        <Pencil size={14}/>
                     </button>
-                    <button onClick={() => handleDeleteSection(selectedSection.id)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-danger-primary/20 text-danger-primary hover:bg-danger-primary/30 transition-colors text-sm font-semibold">
-                        <Trash2 size={14}/> Delete Section
+                    <button onClick={() => handleDeleteSection(selectedSection.id)} className="p-1.5 rounded-lg text-content-muted hover:text-danger-primary hover:bg-danger-primary/10 transition-all" title="Delete Section">
+                        <Trash2 size={14}/>
                     </button>
-                  </>
+                  </div>
                 }
             </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-            <div className="md:col-span-1 flex items-center gap-2">
-                <Filter size={14} className="text-content-muted flex-shrink-0"/>
-                <select value={epochFilter} onChange={e => setEpochFilter(e.target.value)} className={selectClass} style={{backgroundImage: selectIcon, backgroundPosition: 'right 0.5rem center', backgroundSize: '1.5em 1.5em'}}>
-                  {availableEpochs.map(e => <option key={e} value={e}>{e === 'all' ? `All Epochs (${sections.length})` : e}</option>)}
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <div className="w-full sm:w-48 flex items-center gap-2">
+                <Filter size={12} className="text-content-muted flex-shrink-0"/>
+                <select value={epochFilter} onChange={e => setEpochFilter(e.target.value)} className="w-full bg-background-interactive border border-border-secondary rounded-lg px-2 py-1 text-[10px] font-bold text-content-primary focus:ring-1 focus:ring-accent-primary focus:outline-none transition appearance-none bg-no-repeat bg-right pr-6" style={{backgroundImage: selectIcon, backgroundPosition: 'right 0.3rem center', backgroundSize: '1.2em 1.2em'}}>
+                  {availableEpochs.map(e => <option key={e} value={e}>{e === 'all' ? `All Epochs` : e}</option>)}
                 </select>
             </div>
-            <div className="md:col-span-3">
+            <div className="flex-grow w-full overflow-x-auto custom-scrollbar">
                 {loadingSections ? (
-                    <div className="flex justify-center p-4"><Loader2 className="animate-spin text-content-muted" /></div>
+                    <div className="flex justify-center p-2"><Loader2 className="animate-spin text-content-muted" size={16} /></div>
                 ) : filteredSections.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex gap-1.5 pb-1">
                         {filteredSections.map(s => (
                             <button 
                                 key={s.id} 
                                 onClick={() => setSelectedSection(s)}
-                                className={`px-3 py-2 rounded-md transition-colors text-sm ${selectedSection?.id === s.id ? 'bg-accent-primary text-accent-primary-text' : 'text-content-secondary bg-background-interactive hover:bg-background-interactive-hover'}`}
+                                className={`px-2.5 py-1 rounded-lg transition-all text-[10px] font-black uppercase tracking-tighter whitespace-nowrap ${selectedSection?.id === s.id ? 'bg-accent-primary text-white shadow-lg shadow-accent-primary/20' : 'text-content-secondary bg-background-interactive hover:bg-background-interactive-hover'}`}
                             >
-                                <p className="font-semibold">{s.name}</p>
+                                {s.name}
                             </button>
                         ))}
                     </div>
                 ) : (
-                    <p className="text-sm text-center text-content-muted py-4">No sections match filter.</p>
+                    <p className="text-[10px] text-content-muted font-bold uppercase py-2">No sections match filter.</p>
                 )}
             </div>
         </div>
@@ -346,7 +343,6 @@ const CoreDashboard: React.FC<CoreDashboardProps> = ({ core, allCores, allSectio
                     <TabButton tabName="countingSheet" icon={<Sheet size={16}/>} label="Counting"/>
                     <TabButton tabName="synthesis" icon={<Blend size={16}/>} label="Synthesis"/>
                     <TabButton tabName="comparison" icon={<GitCompare size={16} />} label="Comparison" />
-                    <TabButton tabName="processing" icon={<TestTube size={16}/>} label="Processing" disabled={!selectedSection}/>
                     <TabButton tabName="analysis" icon={<AnalysisIcon size={16}/>} label="Analytics" disabled={!selectedSection}/>
                 </nav>
                  <div className="p-6">

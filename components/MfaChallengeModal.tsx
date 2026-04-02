@@ -5,11 +5,13 @@ interface MfaChallengeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onVerify: (code: string) => Promise<void>;
+  onSwitchToEnrollment?: () => void;
+  onBypass?: () => void;
   loading: boolean;
   error: string | null;
 }
 
-const MfaChallengeModal: React.FC<MfaChallengeModalProps> = ({ isOpen, onClose, onVerify, loading, error }) => {
+const MfaChallengeModal: React.FC<MfaChallengeModalProps> = ({ isOpen, onClose, onVerify, onSwitchToEnrollment, onBypass, loading, error }) => {
   const [verificationCode, setVerificationCode] = useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -63,6 +65,34 @@ const MfaChallengeModal: React.FC<MfaChallengeModalProps> = ({ isOpen, onClose, 
             <div className="bg-red-900/50 text-red-300 text-sm p-3 rounded-lg flex items-center gap-2">
               <AlertTriangle size={18} />
               {error}
+            </div>
+          )}
+          
+          {onSwitchToEnrollment && (
+            <div className="text-center pt-2 space-y-3">
+              <button
+                type="button"
+                onClick={onSwitchToEnrollment}
+                className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors underline decoration-cyan-500/30 underline-offset-4"
+              >
+                Lost your authenticator app? Reset and set up a new device
+              </button>
+              
+              {onBypass && (
+                <div className="pt-4 border-t border-slate-700/50">
+                  <button
+                    type="button"
+                    onClick={onBypass}
+                    className="w-full py-2 px-4 bg-slate-700/50 hover:bg-slate-700 text-slate-300 hover:text-white text-[10px] font-bold rounded border border-slate-600 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Shield size={14} className="text-cyan-500" />
+                    EMERGENCY BYPASS (DEV ONLY)
+                  </button>
+                  <p className="text-[9px] text-slate-500 mt-2 italic">
+                    Use this only if you are locked out. You should still unenroll the old device from Supabase Dashboard.
+                  </p>
+                </div>
+              )}
             </div>
           )}
           

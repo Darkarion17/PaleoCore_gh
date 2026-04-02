@@ -133,100 +133,105 @@ const CoreDetails: React.FC<CoreDetailsProps> = ({
 
   return (
     <>
-    <div className="bg-background-primary p-6 rounded-lg shadow-md border border-border-primary">
-        <div className="flex justify-between items-start mb-4">
-            <div>
-                <h1 className="text-2xl font-bold text-content-primary">{core.id}</h1>
-                <p className="text-content-muted">{core.name}</p>
-                <p className="text-sm text-content-secondary mt-1">{core.project}</p>
+    <div className="bg-background-tertiary/20 p-6 rounded-xl border border-border-primary flex flex-col md:flex-row gap-6 animate-fade-in">
+        <div className="flex-grow space-y-6">
+            <div className="flex justify-between items-start">
+                <div>
+                    <span className="micro-label">Core Identifier</span>
+                    <h1 className="text-3xl font-bold text-content-primary tracking-tighter font-mono">{core.id}</h1>
+                    <p className="text-content-muted text-sm mt-1">{core.name} • <span className="font-mono">{core.project}</span></p>
+                </div>
+                <div className="flex items-center gap-2">
+                      <button
+                        onClick={onGenerateFullReport}
+                        disabled={isGeneratingFullReport}
+                        className="p-2 rounded-lg bg-background-interactive text-content-secondary hover:text-accent-primary border border-border-primary transition-all disabled:opacity-50"
+                        title="Download Full Report"
+                      >
+                          {isGeneratingFullReport ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                      </button>
+                       <button
+                        onClick={onOpenNearbyCores}
+                        className="p-2 rounded-lg bg-background-interactive text-content-secondary hover:text-accent-primary border border-border-primary transition-all"
+                        title="NOAA Nearby Cores"
+                      >
+                          <Compass size={18} />
+                      </button>
+                      <button onClick={() => onEdit(core)} className="p-2 rounded-lg bg-background-interactive text-content-secondary hover:text-accent-primary border border-border-primary transition-all" title="Edit Metadata">
+                          <Pencil size={18} />
+                      </button>
+                      <button onClick={() => onDelete(core.id)} className="p-2 rounded-lg bg-danger-primary/10 text-danger-primary hover:bg-danger-primary hover:text-white border border-danger-primary/20 transition-all" title="Delete Core">
+                          <Trash2 size={18} />
+                      </button>
+                  </div>
             </div>
-            <div className="flex items-center gap-1.5 pt-1 flex-shrink-0">
-                  <button
-                    onClick={onGenerateFullReport}
-                    disabled={isGeneratingFullReport}
-                    className="p-2 rounded-md bg-background-interactive text-content-secondary hover:bg-background-interactive-hover hover:text-content-primary transition-colors disabled:cursor-wait"
-                    aria-label="Download Full Core Report"
-                    title="Download Full Core Report"
-                  >
-                      {isGeneratingFullReport ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-                  </button>
-                   <button
-                    onClick={onOpenNearbyCores}
-                    className="p-2 rounded-md bg-background-interactive text-content-secondary hover:bg-background-interactive-hover hover:text-content-primary transition-colors"
-                    aria-label="Find Nearby Cores"
-                    title="Find Nearby Cores from NOAA"
-                  >
-                      <Compass size={18} />
-                  </button>
-                  <button onClick={() => onEdit(core)} className="p-2 rounded-md bg-background-interactive text-content-secondary hover:bg-background-interactive-hover hover:text-content-primary transition-colors" aria-label="Edit Core" title="Edit Core">
-                      <Pencil size={18} />
-                  </button>
-                  <button onClick={() => onDelete(core.id)} className="p-2 rounded-md bg-danger-primary/20 text-danger-primary hover:bg-danger-primary/40 hover:text-content-inverted transition-colors" aria-label="Delete Core" title="Delete Core">
-                      <Trash2 size={18} />
-                  </button>
-              </div>
-        </div>
-        <div className="flex flex-wrap md:flex-nowrap gap-6 justify-between items-start">
-            <div className="space-y-3 flex-grow min-w-0">
-                <div className="flex items-center text-sm">
-                    <MapPin size={16} className="text-accent-secondary mr-3 flex-shrink-0" />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-4">
                     <div>
-                        <span className="font-semibold text-content-primary">Location:</span>
-                        <span className="text-content-secondary ml-2">{`${core.location.lat.toFixed(4)}°, ${core.location.lon.toFixed(4)}°`}</span>
-                        <button onClick={onGoToMap} className="ml-2 p-1 rounded-md text-content-muted hover:bg-background-interactive hover:text-accent-primary transition-colors" title="Show on map">
-                            <LocateFixed size={16}/>
-                        </button>
+                        <span className="micro-label block mb-1">Geospatial Coordinates</span>
+                        <div className="flex items-center gap-3 bg-background-secondary/50 p-3 rounded-lg border border-border-secondary">
+                            <MapPin size={16} className="text-accent-primary" />
+                            <span className="text-sm font-mono text-content-primary">{`${core.location.lat.toFixed(6)}°, ${core.location.lon.toFixed(6)}°`}</span>
+                            <button onClick={onGoToMap} className="ml-auto text-accent-primary hover:text-accent-primary-hover transition-colors" title="Locate on map">
+                                <LocateFixed size={16}/>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <span className="micro-label block mb-1">Bathymetry</span>
+                        <div className="flex items-center gap-3 bg-background-secondary/50 p-3 rounded-lg border border-border-secondary">
+                            <Droplet size={16} className="text-accent-primary" />
+                            <span className="text-sm font-mono text-content-primary">{core.waterDepth} <span className="text-[10px] text-content-muted uppercase">meters</span></span>
+                        </div>
                     </div>
                 </div>
-                 <div className="flex items-center text-sm">
-                    <Droplet size={16} className="text-accent-secondary mr-3 flex-shrink-0" />
-                    <div>
-                        <span className="font-semibold text-content-primary">Water Depth:</span>
-                        <span className="text-content-secondary ml-2">{`${core.waterDepth} m`}</span>
-                    </div>
-                </div>
-                 <div className="flex items-start text-sm">
-                    <BookCopy size={16} className="text-accent-secondary mr-3 flex-shrink-0 mt-1" />
-                    <div className="flex-grow">
-                        <span className="font-semibold text-content-primary">Linked Publications:</span>
+
+                <div>
+                    <span className="micro-label block mb-1">Scientific Documentation</span>
+                    <div className="bg-background-secondary/50 p-3 rounded-lg border border-border-secondary min-h-[100px] flex flex-col">
                         {linkedPublications.length > 0 ? (
-                            <ul className="space-y-1 mt-1">
+                            <ul className="space-y-2 mb-3">
                                 {linkedPublications.map(pub => (
-                                    <li key={pub.id} className="text-xs text-content-secondary flex items-center gap-2 group">
-                                         <button onClick={() => onOpenPublicationModal(pub)} className="text-left hover:text-accent-primary transition-colors">
-                                            {pub.authors.split(',')[0]} et al. ({pub.year}) - {pub.title}
+                                    <li key={pub.id} className="text-[11px] text-content-secondary flex items-start gap-2 group">
+                                         <button onClick={() => onOpenPublicationModal(pub)} className="text-left hover:text-accent-primary transition-colors leading-tight">
+                                            <span className="font-bold">{pub.authors.split(',')[0]} ({pub.year})</span>: {pub.title.length > 60 ? pub.title.substring(0, 60) + '...' : pub.title}
                                         </button>
                                         <button
                                             onClick={() => onUnlinkCoreFromPublication(core.id, pub.id)}
-                                            className="opacity-0 group-hover:opacity-100 text-danger-primary/70 hover:text-danger-primary transition-opacity"
-                                            title="Unlink publication"
+                                            className="opacity-0 group-hover:opacity-100 text-danger-primary hover:text-danger-primary transition-opacity mt-0.5"
                                         >
-                                            <Trash2 size={12} />
+                                            <Trash2 size={10} />
                                         </button>
                                     </li>
                                 ))}
                             </ul>
                         ) : (
-                            <p className="text-xs text-content-muted mt-1">No publications linked.</p>
+                            <p className="text-[11px] text-content-muted italic mb-3">No publications linked to this core.</p>
                         )}
-                         <div className="flex items-center gap-4 mt-2">
-                            <button onClick={() => setIsLinkModalOpen(true)} className="flex items-center gap-1.5 text-xs font-semibold text-accent-primary hover:text-accent-primary-hover transition-colors">
-                                <LinkIcon size={12}/> Link Publication
+                        <div className="mt-auto flex items-center gap-4 pt-2 border-t border-border-secondary/50">
+                            <button onClick={() => setIsLinkModalOpen(true)} className="flex items-center gap-1 text-[10px] font-bold text-accent-primary hover:text-accent-primary-hover uppercase tracking-wider transition-colors">
+                                <LinkIcon size={10}/> Link
                             </button>
-                             <button onClick={() => onOpenPublicationModal(null)} className="flex items-center gap-1.5 text-xs font-semibold text-accent-primary hover:text-accent-primary-hover transition-colors">
-                                <PlusCircle size={12}/> Add Publication
+                             <button onClick={() => onOpenPublicationModal(null)} className="flex items-center gap-1 text-[10px] font-bold text-accent-primary hover:text-accent-primary-hover uppercase tracking-wider transition-colors">
+                                <PlusCircle size={10}/> New
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
-             <div
+        </div>
+
+         <div className="w-full md:w-64 flex flex-col gap-2">
+            <span className="micro-label">Site Context</span>
+            <div
                 ref={mapContainerRef}
-                className="w-full md:w-48 h-48 rounded-lg overflow-hidden bg-background-secondary border border-border-secondary flex-shrink-0"
+                className="w-full aspect-square rounded-xl overflow-hidden bg-background-secondary border border-border-primary grayscale hover:grayscale-0 transition-all duration-500"
                 aria-label="Mini-map showing core location"
             >
                 {/* Map is rendered here by OpenLayers */}
             </div>
+            <p className="text-[10px] text-content-muted text-center font-mono uppercase tracking-widest">Interactive Satellite Reference</p>
         </div>
     </div>
     <LinkPublicationModal 

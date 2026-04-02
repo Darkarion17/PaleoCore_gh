@@ -4,13 +4,17 @@ import React, { useState, useEffect, useMemo } from 'react';
 import type { Core, Section, Microfossil, PartialMicrofossil, Folder, Publication, CorePublicationLink, SidebarView, ToastType, CustomProxy } from './types';
 import CoreSelector from './components/CoreSelector';
 import CoreDashboard from './components/CoreDashboard';
+import HomeDashboard from './components/HomeDashboard';
+import CoreExplorer from './components/CoreExplorer';
 import AddCoreModal from './components/AddCoreModal';
-import { BarChart3, Microscope, PlusCircle, LogOut, List, Map as MapIcon, Image, Info, Settings, Search, Edit, Trash2, GitCompare } from 'lucide-react';
+import { BarChart3, Microscope, PlusCircle, LogOut, List, Map as MapIcon, Image as ImageIcon, Info, Settings, Search, Edit, Trash2, GitCompare, Home, Database } from 'lucide-react';
 import Logo from './components/Logo';
 import { supabase } from './services/supabaseClient';
 import * as coreService from './services/coreService';
 import { type Session } from '@supabase/supabase-js';
 import AuthPage from './components/AuthPage';
+import MfaChallengeModal from './components/MfaChallengeModal';
+import MfaEnrollmentModal from './components/MfaEnrollmentModal';
 import CoreMap from './components/CoreMap';
 import { PROXY_LABELS, COMMON_DATA_KEYS, SAMPLE_DATA, FOSSIL_ASSOCIATED_PROXIES } from './constants';
 import ImageAnalysisView from './components/ImageAnalysisView';
@@ -28,6 +32,7 @@ import ExportWizard from './components/ExportWizard';
 import { ToastProvider } from './components/useToast';
 import AddPublicationModal from './components/AddPublicationModal';
 import CoreComparisonView from './components/CoreComparisonView';
+import FloatingAiAssistant from './components/FloatingAiAssistant';
 
 
 const App: React.FC = () => {
@@ -48,7 +53,7 @@ const App: React.FC = () => {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isSavingProxies, setIsSavingProxies] = useState(false);
   const [editingCore, setEditingCore] = useState<Core | null>(null);
-  const [sidebarView, setSidebarView] = useState<SidebarView>('list');
+  const [sidebarView, setSidebarView] = useState<SidebarView>('dashboard');
   const [isSidebarExpanded, setIsSidebarExpanded] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [synthesisShortcutTrigger, setSynthesisShortcutTrigger] = useState(0);
@@ -80,6 +85,11 @@ const App: React.FC = () => {
   const [folderForExport, setFolderForExport] = useState<Folder | null>(null);
   
   const [compareSelection, setCompareSelection] = useState<string[]>([]);
+
+  const [isMfaChallengeOpen, setIsMfaChallengeOpen] = useState(false);
+  const [isMfaEnrollmentOpen, setIsMfaEnrollmentOpen] = useState(false);
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const [mfaLoading, setMfaLoading] = useState(false);
 
   const addToast = (newToast: Omit<ToastType, 'show'>) => {
     setToast({ ...newToast, show: true });
@@ -154,16 +164,57 @@ const App: React.FC = () => {
       }
   };
 
+  const [isMfaBypassed, setIsMfaBypassed] = useState(false);
+
+  const checkMfaStatus = async (currentSession: Session | null) => {
+    if (!currentSession || isMfaBypassed) return;
+    
+    try {
+      const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (error) throw error;
+
+      // Also check factors list as a secondary source of truth
+      const { data: factorsData } = await supabase.auth.mfa.listFactors();
+      const hasVerifiedFactor = factorsData?.all.some(f => f.status === 'verified');
+
+      console.log('MFA Check - Current:', data.currentLevel, 'Next:', data.nextLevel, 'HasVerified:', hasVerifiedFactor);
+
+      if (data.currentLevel === 'aal1') {
+        if (data.nextLevel === 'aal2' || hasVerifiedFactor) {
+          // Supabase or factors list says there is a factor to challenge
+          setIsMfaChallengeOpen(true);
+          setIsMfaEnrollmentOpen(false);
+        } else {
+          // No verified factor found, need to enroll
+          setIsMfaEnrollmentOpen(true);
+          setIsMfaChallengeOpen(false);
+        }
+      } else if (data.currentLevel === 'aal2') {
+        setIsMfaChallengeOpen(false);
+        setIsMfaEnrollmentOpen(false);
+      }
+    } catch (err) {
+      console.error('MFA Status Check Error:', err);
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+      if (session) checkMfaStatus(session);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session) {
+        checkMfaStatus(session);
+      } else {
+        setIsMfaChallengeOpen(false);
+        setIsMfaEnrollmentOpen(false);
+      }
+      
       if (_event === 'SIGNED_OUT') {
-        // Reset state on logout
         setCores([]);
         setFolders([]);
         setAllUserSections([]);
@@ -177,8 +228,22 @@ const App: React.FC = () => {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (session) {
+      checkMfaStatus(session);
+    }
+  }, [session]);
+
   const fetchData = async () => {
     if (!session?.user) return;
+    
+    // Ensure MFA is verified if required before fetching data
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    // Force MFA: if not enrolled (nextLevel aal1) or not verified (currentLevel aal1)
+    if (aal.currentLevel !== 'aal2') {
+        return;
+    }
+
     try {
         const [coresAndFolders, fetchedSections, { microfossils: fetchedFossils }, publicationsAndLinks] = await Promise.all([
             coreService.fetchFoldersAndCores(session.user.id),
@@ -221,7 +286,12 @@ const App: React.FC = () => {
         setInitialDataLoaded(true);
 
     } catch (error: any) {
-        setToast({ message: `Error fetching data: ${error.message}`, type: 'error', show: true });
+        console.error('Initial data fetch error:', error);
+        const isFetchError = error.message?.includes('fetch') || error.message?.includes('NetworkError');
+        const message = isFetchError 
+            ? 'Network connection failed. Please check your internet connection or Supabase configuration.' 
+            : `Error fetching data: ${error.message}`;
+        setToast({ message, type: 'error', show: true });
     }
   };
 
@@ -535,12 +605,48 @@ const App: React.FC = () => {
       ] : []),
       { id: 'view-list', title: 'Switch to List View', category: 'Navigation', icon: <List size={18} />, onExecute: () => { setSidebarView('list'); setIsCommandPaletteOpen(false); }, shortcut: ['1'] },
       { id: 'view-map', title: 'Switch to Map View', category: 'Navigation', icon: <MapIcon size={18} />, onExecute: () => { setSidebarView('map'); setIsCommandPaletteOpen(false); }, shortcut: ['2'] },
-      { id: 'view-image', title: 'Switch to Image Analysis', category: 'Navigation', icon: <Image size={18} />, onExecute: () => { setSidebarView('imageAnalysis'); setIsCommandPaletteOpen(false); }, shortcut: ['3'] },
+      { id: 'view-image', title: 'Switch to Image Analysis', category: 'Navigation', icon: <ImageIcon size={18} />, onExecute: () => { setSidebarView('imageAnalysis'); setIsCommandPaletteOpen(false); }, shortcut: ['3'] },
       { id: 'view-wiki', title: 'Switch to Micropaleontology Wiki', category: 'Navigation', icon: <Microscope size={18} />, onExecute: () => { setSidebarView('wiki'); setIsCommandPaletteOpen(false); }, shortcut: ['4'] },
       { id: 'account', title: 'Account Settings', category: 'Application', icon: <Settings size={18} />, onExecute: () => { setIsAccountModalOpen(true); setIsCommandPaletteOpen(false); }, shortcut: ['⌘', ','] },
       { id: 'shortcuts', title: 'View Keyboard Shortcuts', category: 'Application', icon: <Info size={18} />, onExecute: () => { setIsShortcutsModalOpen(true); setIsCommandPaletteOpen(false); }, shortcut: ['?'] },
       { id: 'logout', title: 'Log Out', category: 'Application', icon: <LogOut size={18} />, onExecute: () => { supabase.auth.signOut(); setIsCommandPaletteOpen(false); } },
   ], [selectedCore]);
+
+  const handleMfaVerify = async (code: string) => {
+    setMfaLoading(true);
+    setMfaError(null);
+    try {
+      const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+
+      const totpFactor = factorsData.totp[0];
+      if (!totpFactor) throw new Error("No 2FA factor found.");
+
+      const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({
+        factorId: totpFactor.id,
+        code: code,
+      });
+
+      if (verifyError) throw verifyError;
+
+      setIsMfaChallengeOpen(false);
+      // Refresh session to update AAL
+      const { data: { session: newSession } } = await supabase.auth.getSession();
+      setSession(newSession);
+    } catch (err: any) {
+      setMfaError(err.message);
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleMfaEnrolled = async () => {
+    setIsMfaEnrollmentOpen(false);
+    // Refresh session to update AAL
+    const { data: { session: newSession } } = await supabase.auth.getSession();
+    setSession(newSession);
+    setToast({ message: '2FA enabled successfully!', type: 'success', show: true });
+  };
 
   if (!session) {
     return <AuthPage />;
@@ -560,8 +666,36 @@ const App: React.FC = () => {
     setSidebarView('list');
   };
 
+  const handleSelectCore = (core: Core) => {
+    setSelectedCore(core);
+    setSidebarView('list');
+  };
+
   const renderMainContent = () => {
     switch (sidebarView) {
+        case 'dashboard':
+            return <HomeDashboard 
+                cores={cores} 
+                folders={folders} 
+                sections={allUserSections} 
+                onNavigate={setSidebarView} 
+                onSelectCore={handleSelectCore}
+            />;
+        case 'explorer':
+            return <CoreExplorer 
+                cores={cores}
+                folders={folders}
+                onSelectCore={handleSelectCore}
+                onCreateFolder={handleCreateFolder}
+                onAddCore={() => handleOpenCoreModal(null)}
+                onRenameFolder={handleRenameFolder}
+                onDeleteFolder={handleDeleteFolder}
+                onMoveCore={handleMoveCore}
+                onExportFolder={handleExportFolder}
+                exportingFolderId={folderForExport ? folderForExport.id : null}
+                onBulkDelete={handleBulkDelete}
+                onBulkMove={handleBulkMove}
+            />;
         case 'list':
             return selectedCore ? 
                 <CoreDashboard 
@@ -595,7 +729,13 @@ const App: React.FC = () => {
                 <div className="flex flex-col items-center justify-center h-full text-content-muted">
                     <BarChart3 size={48} className="mb-4" />
                     <h2 className="text-2xl font-bold text-content-primary">Select a core to begin</h2>
-                    <p>Choose a core from the list on the left, or add a new one.</p>
+                    <p>Choose a core from the explorer or dashboard to start analyzing.</p>
+                    <button 
+                        onClick={() => setSidebarView('explorer')}
+                        className="mt-4 px-6 py-2 rounded-full bg-accent-primary text-white text-xs font-black uppercase tracking-widest hover:shadow-lg transition-all"
+                    >
+                        Go to Explorer
+                    </button>
                 </div>;
         case 'map':
             return <CoreMap cores={cores} selectedCore={selectedCore} onSelectCore={handleMapCoreSelection} isSidebarOpen={isSidebarExpanded} setToast={setToast} folders={folders} allUserSections={allUserSections} microfossils={microfossils} />;
@@ -623,9 +763,11 @@ const App: React.FC = () => {
           
           <nav className={`flex items-center border-b border-border-primary flex-shrink-0 ${isSidebarExpanded ? 'p-2 flex-row justify-around' : 'py-2 flex-col space-y-2'}`}>
               {[
-                { view: 'list', icon: List, label: 'List' },
+                { view: 'dashboard', icon: Home, label: 'Dashboard' },
+                { view: 'explorer', icon: Database, label: 'Explorer' },
+                { view: 'list', icon: List, label: 'Core View' },
                 { view: 'map', icon: MapIcon, label: 'Map' },
-                { view: 'imageAnalysis', icon: Image, label: 'Image AI' },
+                { view: 'imageAnalysis', icon: ImageIcon, label: 'Image AI' },
                 { view: 'wiki', icon: Microscope, label: 'Wiki' },
               ].map(({ view, icon: Icon, label }) => (
                   <button 
@@ -644,8 +786,10 @@ const App: React.FC = () => {
               <CoreSelector
                   cores={cores}
                   folders={folders}
-                  onSelectCore={setSelectedCore}
+                  onSelectCore={handleSelectCore}
                   selectedCoreId={selectedCore?.id}
+                  filterFolderId={selectedCore?.folder_id}
+                  onGoToExplorer={() => setSidebarView('explorer')}
                   onCreateFolder={handleCreateFolder}
                   onAddCore={() => handleOpenCoreModal(null)}
                   onRenameFolder={handleRenameFolder}
@@ -682,6 +826,48 @@ const App: React.FC = () => {
         {isPublicationModalOpen && <AddPublicationModal isOpen={isPublicationModalOpen} onClose={() => {setIsPublicationModalOpen(false); setEditingPublication(null);}} onSave={handleSavePublication} publicationToEdit={editingPublication}/>}
         {isAccountModalOpen && <AccountModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} userEmail={session.user.email || ''} />}
         {isShortcutsModalOpen && <ShortcutsModal isOpen={isShortcutsModalOpen} onClose={() => setIsShortcutsModalOpen(false)} />}
+        
+        <FloatingAiAssistant 
+          cores={cores} 
+          selectedCore={selectedCore} 
+          allSections={allUserSections} 
+        />
+
+        <MfaChallengeModal
+          isOpen={isMfaChallengeOpen && !isMfaBypassed}
+          onClose={() => supabase.auth.signOut()}
+          onVerify={handleMfaVerify}
+          onSwitchToEnrollment={() => {
+            setIsMfaChallengeOpen(false);
+            setIsMfaEnrollmentOpen(true);
+          }}
+          onBypass={() => setIsMfaBypassed(true)}
+          loading={mfaLoading}
+          error={mfaError}
+        />
+
+        <MfaEnrollmentModal
+          isOpen={isMfaEnrollmentOpen && !isMfaBypassed}
+          onClose={() => supabase.auth.signOut()}
+          onEnrolled={handleMfaEnrolled}
+          onSwitchToChallenge={() => {
+            setIsMfaEnrollmentOpen(false);
+            setIsMfaChallengeOpen(true);
+          }}
+          onBypass={() => setIsMfaBypassed(true)}
+        />
+
+        { (isMfaChallengeOpen || isMfaEnrollmentOpen) && !isMfaBypassed && (
+          <div className="fixed bottom-4 right-4 z-[9999]">
+            <button 
+              onClick={() => setIsMfaBypassed(true)}
+              className="bg-danger-primary/20 hover:bg-danger-primary/40 text-white/50 hover:text-white text-[10px] px-3 py-1 rounded border border-white/10 transition-all"
+            >
+              Emergency Bypass (Dev Only)
+            </button>
+          </div>
+        )}
+
         <ConfirmModal isOpen={confirmModalState.isOpen} onClose={() => setConfirmModalState(prev => ({ ...prev, isOpen: false }))} {...confirmModalState} />
         {toast?.show && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         {coreForNearbySearch && <NearbyCoresModal isOpen={isNearbyCoresModalOpen} onClose={() => setIsNearbyCoresModalOpen(false)} core={coreForNearbySearch} />}
